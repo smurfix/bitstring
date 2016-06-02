@@ -100,8 +100,9 @@ cdef class ByteStore:
     def __copy__(self):
         return ByteStore(self._rawarray[:], self.bitlength, self.offset)
 
-    def _appendstore(self, store):
+    cpdef _appendstore(self, ByteStore store):
         """Join another store on to the end of this one."""
+        cdef int joinval
         if not store.bitlength:
             return
         # Set new array offset to the number of bits in the final byte of current array.
@@ -116,7 +117,7 @@ cdef class ByteStore:
             self._rawarray.extend(store._rawarray)
         self.bitlength += store.bitlength
 
-    def _prependstore(self, store):
+    cpdef _prependstore(self, ByteStore store):
         """Join another store on to the start of this one."""
         if not store.bitlength:
             return
@@ -171,11 +172,14 @@ cdef class ByteStore:
         self._rawarray[start:end] = value
 
 
-cpdef offsetcopy(ByteStore s, int newoffset):
+cpdef ByteStore offsetcopy(ByteStore s, int newoffset):
     """Return a copy of a ByteStore with the newoffset.
 
     Not part of public interface.
     """
+    cdef ByteStore new_s
+    cdef int shiftleft, x, bits_in_last_byte, shiftright
+
     assert 0 <= newoffset < 8
     if not s.bitlength:
         return copy.copy(s)
@@ -212,7 +216,7 @@ cpdef offsetcopy(ByteStore s, int newoffset):
         assert new_s.offset == newoffset
         return new_s
 
-cpdef equal(ByteStore a, ByteStore b):
+cpdef bint equal(ByteStore a, ByteStore b):
     """Return True if ByteStores a == b.
 
     Not part of public interface.

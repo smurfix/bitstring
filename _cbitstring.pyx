@@ -25,7 +25,7 @@ MAX_CHARS = 250
 # Maximum size of caches used for speed optimisations.
 CACHE_SIZE = 1000
 
-class _Settings(object):
+class _Settings:
     """Container for module-wide settings. This class is private,
     and the instance below is used to get / set settings."""
     def setbytealigned(self, val):
@@ -299,7 +299,7 @@ OCT_TO_BITS = ['{0:03b}'.format(i) for i in range(8)]
 BIT_COUNT = dict(zip(range(256), [bin(i).count('1') for i in range(256)]))
 
 
-class Bits(object):
+class Bits:
     """A container holding an immutable sequence of bits.
 
     For a mutable container use the BitArray class instead.
