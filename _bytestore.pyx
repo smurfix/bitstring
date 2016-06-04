@@ -58,10 +58,6 @@ cdef class ByteStore:
     Used internally - not part of public interface.
     """
 
-    cdef public object _rawarray
-    cdef public int bitlength, offset
-    cdef public bint immutable
-
     def __init__(self, data, bitlength=None, offset=None, immutable=False):
         """data is either a bytearray or a MmapByteArray"""
         self._rawarray = data
@@ -73,13 +69,13 @@ cdef class ByteStore:
         self.bitlength = bitlength
         self.immutable = immutable
 
-    cpdef getbit(self, int pos):
+    cpdef bint getbit(self, int pos):
         cdef int byte, bit
         assert 0 <= pos < self.bitlength
         byte, bit = divmod(self.offset + pos, 8)
         return bool(self._rawarray[byte] & (128 >> bit))
 
-    cpdef getbyte(self, int pos):
+    cpdef int getbyte(self, int pos):
         """Direct access to byte data."""
         return self._rawarray[pos]
 

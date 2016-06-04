@@ -97,9 +97,9 @@ class Interning(unittest.TestCase):
         self.assertFalse(a is b)
     #        self.assertTrue(a._datastore is b._datastore)
 
-class PurePython(unittest.TestCase):
-    def testIsPure(self):
-        self.assertTrue(bitstring.__pure__)
+# class PurePython(unittest.TestCase):
+#     def testIsPure(self):
+#         self.assertTrue(bitstring.__pure__)
 
 
 class Cython(unittest.TestCase):

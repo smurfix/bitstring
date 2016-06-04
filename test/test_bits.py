@@ -8,7 +8,7 @@ import bitstring
 import array
 
 # try:
-from _cbitstring import MmapByteArray, ByteStore
+from _bytestore import MmapByteArray, ByteStore
 # except ImportError:
 #     from _pybitstring import MmapByteArray, ByteStore
 

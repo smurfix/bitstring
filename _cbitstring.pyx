@@ -15,7 +15,8 @@ import collections
 import array
 from io import IOBase
 
-from _bytestore import ByteStore, offsetcopy, MmapByteArray, equal
+from _bytestore import offsetcopy, MmapByteArray, equal
+from _bytestore cimport ByteStore
 
 byteorder = sys.byteorder
 

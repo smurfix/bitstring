@@ -10,8 +10,8 @@ import collections
 
 from bitstring import BitStream, ConstBitStream, pack
 # try:
-from _cbitstring import ByteStore, offsetcopy, expand_brackets, MAX_CHARS, REPLACEMENTS_LE, \
-    REPLACEMENTS_BE, MmapByteArray, tokenparser
+from _bytestore import ByteStore, offsetcopy, MmapByteArray
+from _cbitstring import expand_brackets, MAX_CHARS, REPLACEMENTS_LE, REPLACEMENTS_BE, tokenparser
 from _cbitarray import PACK_CODE_SIZE
 # except ImportError:
 #     from _pybitstring import ByteStore, offsetcopy, expand_brackets, MAX_CHARS, REPLACEMENTS_BE, REPLACEMENTS_LE, \
