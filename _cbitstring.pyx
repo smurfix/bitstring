@@ -467,6 +467,23 @@ class Bits:
         # The copy can return self as it's immutable.
         return self
 
+    # Used in Cython instead of other special methods
+    # def __richcmp__(self, bs, op):
+    #     if op == 2: # ==
+    #         try:
+    #             bs = Bits(bs)
+    #         except TypeError:
+    #             return False
+    #         return equal(self._datastore, bs._datastore)
+    #     if op == 3: # !=
+    #         try:
+    #             bs = Bits(bs)
+    #         except TypeError:
+    #             return True
+    #         return not equal(self._datastore, bs._datastore)
+    #     else: # <, >, <=, >=
+    #         raise TypeError("unorderable type: {0}".format(type(self).__name__))
+
     def __lt__(self, other):
         raise TypeError("unorderable type: {0}".format(type(self).__name__))
 
