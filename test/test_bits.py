@@ -433,3 +433,57 @@ class ContainsBug(unittest.TestCase):
 
         self.assertTrue('0b1' in Bits('0xf'))
         self.assertFalse('0b0' in Bits('0xf'))
+
+
+class Float16(unittest.TestCase):
+
+    def testCreationFromBinary(self):
+        f = Bits('0b 0 11110 1111111111')
+        self.assertEqual(f.float, 65504)
+        f = Bits('0b 0 01111 0000000000')
+        self.assertEqual(f.float, 1.0)
+        f = Bits('0b 1 10000 0000000000')
+        self.assertEqual(f.float, -2.0)
+        f = Bits('0b 0 00000 0000000000')
+        self.assertEqual(f.float, 0.0)
+        f = Bits('0b 1 00000 0000000000')
+        self.assertEqual(f.float, -0.0)
+        f = Bits('0b 0 01101 0101010101')
+        self.assertEqual(f.float, 0.333251953125)
+
+    # def testInfinity(self):
+    #     f = Bits('0b 0 11111 0000000000')
+    #     self.assertEqual(f.float, float('inf'))
+    #     f = Bits('0b 1 11111 0000000000')
+    #     self.assertEqual(f.float, float('-inf'))
+    #     f = Bits(float=float('inf'), length=16)
+    #     self.assertEqual(f.float, float('inf'))
+    #     self.assertEqual(f.bin, '01111110000000000')
+
+    def testCreationFromFloat(self):
+        for f in [65504.0, 999.0, 0.0, 1.0, -1.0, -2.0, 0.5]:
+            h = Bits(float=f, length=16)
+            self.assertEqual(h.length, 16)
+            self.assertEqual(h.float, f)
+
+    def testFloat16Interpretation(self):
+        pass
+
+
+class FloatOverflows(unittest.TestCase):
+
+    def testFloat32Overflow(self):
+        largest_bin = 0x7f7fffff
+        largest_int = 2**128 - 2**(127-23)
+        f = Bits(uint=largest_bin, length=32)
+        self.assertEqual(f.float, largest_int)
+        f = Bits(float=largest_int, length=32)
+        self.assertEqual(int(f.float), largest_int)
+        f = Bits(float=largest_int + 1, length=32)
+        self.assertEqual(int(f.float), largest_int)
+        with self.assertRaises(OverflowError):
+            f = Bits(float=10**39, length=32)
+
+    def testFloat64Overflow(self):
+        with self.assertRaises(OverflowError):
+            f = Bits(float=10**900, length=64)

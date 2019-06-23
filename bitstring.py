@@ -11,9 +11,9 @@ ConstBitStream -- An immutable container with streaming methods.
 BitStream -- A mutable container with streaming methods.
 
                       Bits (base class)
-                     /    \
+                     /    \ 
  + mutating methods /      \ + streaming methods
-                   /        \
+                   /        \ 
               BitArray   ConstBitStream
                    \        /
                     \      /
@@ -38,7 +38,7 @@ https://github.com/scott-griffiths/bitstring
 __licence__ = """
 The MIT License
 
-Copyright (c) 2006-2018 Scott Griffiths (dr.scottgriffiths@gmail.com)
+Copyright (c) 2006-2019 Scott Griffiths (dr.scottgriffiths@gmail.com)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -74,6 +74,11 @@ import struct
 import operator
 import collections
 import array
+
+try:
+    import numpy as np
+except ImportError:
+    pass  # Only required for the experimental fp16 support
 
 byteorder = sys.byteorder
 
@@ -1297,18 +1302,18 @@ class Bits(object):
 
     def _setfile(self, filename, length, offset):
         """Use file as source of bits."""
-        source = open(filename, 'rb')
-        if offset is None:
-            offset = 0
-        if length is None:
-            length = os.path.getsize(source.name) * 8 - offset
-        byteoffset, offset = divmod(offset, 8)
-        bytelength = (length + byteoffset * 8 + offset + 7) // 8 - byteoffset
-        m = MmapByteArray(source, bytelength, byteoffset)
-        if length + byteoffset * 8 + offset > m.filelength * 8:
-            raise CreationError("File is not long enough for specified "
-                                "length and offset.")
-        self._datastore = ConstByteStore(m, length, offset)
+        with open(filename, 'rb') as source:
+            if offset is None:
+                offset = 0
+            if length is None:
+                length = os.path.getsize(source.name) * 8 - offset
+            byteoffset, offset = divmod(offset, 8)
+            bytelength = (length + byteoffset * 8 + offset + 7) // 8 - byteoffset
+            m = MmapByteArray(source, bytelength, byteoffset)
+            if length + byteoffset * 8 + offset > m.filelength * 8:
+                raise CreationError("File is not long enough for specified "
+                                    "length and offset.")
+            self._datastore = ConstByteStore(m, length, offset)
 
     def _setbytes_safe(self, data, length=None, offset=0):
         """Set the data from a string."""
@@ -1545,13 +1550,74 @@ class Bits(object):
             raise CreationError("A non-zero length must be specified with a "
                                 "float initialiser.")
         if length == 32:
-            b = struct.pack('>f', f)
+            try:
+                b = struct.pack('>f', f)
+            except struct.error:
+                raise OverflowError("failed to pack float into 32 bits")
         elif length == 64:
-            b = struct.pack('>d', f)
+            try:
+                b = struct.pack('>d', f)
+            except struct.error:
+                raise OverflowError("failed to pack float into 64 bits")
+        elif length == 16:
+            b = self._convertfloat32tofloat16_numpy(f)
         else:
-            raise CreationError("floats can only be 32 or 64 bits long, "
+            raise CreationError("floats can only be 16, 32 or 64 bits long, "
                                 "not {0} bits", length)
         self._setbytes_unsafe(bytearray(b), length, 0)
+
+    @staticmethod
+    def _convertfloat16tofloat32(f16):
+        """Convert a two byte float16 to a four byte float32"""
+        f16 = (f16[0] << 8) + f16[1]
+        f32 = bytearray(4)
+        f32[0] = (f16 >> 15) << 7  # Copy sign bit
+        exp = (f16 >> 10) & 0b11111
+        if exp != 0:
+            exp -= 15
+            exp += 127
+        f32[0] |= (exp >> 1)  # Just top 7 bits of exponent
+        f32[1] = (exp & 1) << 7  # final exponent bit
+        mantissa = f16 & 0b1111111111
+        f32[1] |= (mantissa >> 3)
+        f32[2] = (mantissa << 5) & 0xff
+        return f32
+
+    @staticmethod
+    def _convertfloat32tofloat16_numpy(f32):
+        """Test code that uses numpy"""
+        try:
+            f32 = np.float32(f32)
+        except NameError:
+            raise Error("16 bit float support is experimental and requires the numpy module")
+        f16 = bytearray(2)
+        bytes_ = f32.astype(np.float16).tobytes()
+        f16[0] = bytes_[1]
+        f16[1] = bytes_[0]
+        return f16
+
+    @staticmethod
+    def _convertfloat32tofloat16(f32):
+        """Convert a four byte float32 to a two byte float16"""
+        # Need expoenent to go from 8 to 5 bits and mantissa from 23 to 10
+        f32 = struct.pack('>f', f32)
+        f32 = (f32[0] << 24) + (f32[1] << 16) + (f32[2] << 8) + f32[3]
+        f16 = bytearray(2)
+        exp = (f32 >> 23) & 0xff
+        if exp == 255:
+            # Either an infinity or NaN
+            exp = 31
+        elif exp != 0:
+            exp -= 127
+            exp += 15
+        f16[0] = f32 >> 24  # Copy first byte
+        # Last two bit become top two bits of mantissa
+        f16[0] &= 0b11111100
+        top2 = (f32 >> 21) & 0b11
+        f16[0] |= top2
+        # Second byte is 3rd to 11th bit of mantissa
+        f16[1] = (f32 >> 13) & 0xff
+        return f16
 
     def _readfloat(self, length, start):
         """Read bits and interpret as a float."""
@@ -1561,15 +1627,22 @@ class Bits(object):
                 f, = struct.unpack('>f', bytes(self._datastore.getbyteslice(startbyte, startbyte + 4)))
             elif length == 64:
                 f, = struct.unpack('>d', bytes(self._datastore.getbyteslice(startbyte, startbyte + 8)))
+            elif length == 16:
+                b = self._convertfloat16tofloat32(self._datastore.getbyteslice(startbyte, startbyte + 2))
+                f, = struct.unpack('>f', b)
+
         else:
             if length == 32:
                 f, = struct.unpack('>f', self._readbytes(32, start))
             elif length == 64:
                 f, = struct.unpack('>d', self._readbytes(64, start))
+            elif length == 16:
+                b = self._convertfloat16tofloat32(self._readbytes(16, start))
+                f, = struct.unpack('>f', b)
         try:
             return f
         except NameError:
-            raise InterpretError("floats can only be 32 or 64 bits long, not {0} bits", length)
+            raise InterpretError("floats can only be 16, 32 or 64 bits long, not {0} bits", length)
 
     def _getfloat(self):
         """Interpret the whole bitstring as a float."""
